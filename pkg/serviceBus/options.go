@@ -1,12 +1,11 @@
 package serviceBus
 
 import (
-	"dev.azure.com/finorun/Playground/_git/go-bus.git/pkg/serviceBus/saga"
+	"github.com/abecu-hub/go-bus/pkg/serviceBus/saga"
 )
 
-func UseSagas(store saga.Store) func(endpoint *Endpoint) error {
-	return func(endpoint *Endpoint) error {
+func UseSagas(store saga.Store) func(endpoint *Endpoint) {
+	return func(endpoint *Endpoint) {
 		endpoint.SagaStore = store
-		return nil
 	}
 }

@@ -1,12 +1,11 @@
 package rabbitMq
 
 import (
-	"fmt"
 	"github.com/streadway/amqp"
 )
 
 type Topology interface {
-	Setup()
+	Setup() error
 	RegisterRouting(route string) error
 	UnregisterRouting(route string) error
 	Publish(msg *amqp.Publishing) error
@@ -19,7 +18,7 @@ type DefaultTopology struct {
 	Exchange  string
 }
 
-func (t *DefaultTopology) Setup() {
+func (t *DefaultTopology) Setup() error {
 	err := t.Transport.currentChannel.ExchangeDeclare(
 		t.Exchange,
 		"topic",
@@ -30,7 +29,7 @@ func (t *DefaultTopology) Setup() {
 		nil)
 
 	if err != nil {
-		fmt.Print(err)
+		return err
 	}
 
 	_, err = t.Transport.currentChannel.QueueDeclare(
@@ -42,8 +41,9 @@ func (t *DefaultTopology) Setup() {
 		t.Transport.InputQueue.Args)
 
 	if err != nil {
-		fmt.Print(err)
+		return err
 	}
+	return nil
 }
 
 func (t *DefaultTopology) RegisterRouting(route string) error {
@@ -81,54 +81,4 @@ func (t *DefaultTopology) SendLocal(msg *amqp.Publishing) error {
 		return err
 	}
 	return nil
-}
-
-type FanoutTopology struct {
-	Transport *Transport
-}
-
-func (t *FanoutTopology) Setup() {
-	_, err := t.Transport.currentChannel.QueueDeclare(
-		t.Transport.InputQueue.Name,
-		true,
-		false,
-		false,
-		true,
-		nil)
-
-	if err != nil {
-		fmt.Print(err)
-	}
-}
-
-func (t *FanoutTopology) RegisterRouting(route string) error {
-	err := t.Transport.currentChannel.ExchangeDeclare(route, "fanout", true, false, false, false, nil)
-	if err != nil {
-		return err
-	}
-	err = t.Transport.currentChannel.QueueBind(t.Transport.InputQueue.Name, "", route, false, t.Transport.InputQueue.Args)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (t *FanoutTopology) UnregisterRouting(route string) error {
-	panic("Not implemented!")
-}
-
-func (t *FanoutTopology) Publish(msg *amqp.Publishing) error {
-	err := t.Transport.currentChannel.Publish(msg.Type, "", false, false, *msg)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (t *FanoutTopology) Send(destination string, msg *amqp.Publishing) error {
-	panic("Not implemented")
-}
-
-func (t *FanoutTopology) SendLocal(msg *amqp.Publishing) error {
-	panic("Not implemented")
 }

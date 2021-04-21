@@ -1,8 +1,8 @@
 package serviceBus
 
 import (
-	"dev.azure.com/finorun/Playground/_git/go-bus.git/pkg/serviceBus/saga"
 	"errors"
+	"github.com/abecu-hub/go-bus/pkg/serviceBus/saga"
 	"github.com/google/uuid"
 	"time"
 )
@@ -18,7 +18,7 @@ type Endpoint struct {
 /*
 Create a new service bus Endpoint by providing a transport e.g. RabbitMQ, MSMQ, Kafka, etc.
 */
-func Create(name string, transport Transport, options ...func(endpoint *Endpoint) error) *Endpoint {
+func Create(name string, transport Transport, options ...func(endpoint *Endpoint)) *Endpoint {
 	endpoint := &Endpoint{
 		Name:             name,
 		Transport:        transport,
@@ -146,13 +146,11 @@ func (endpoint *Endpoint) handleReceivedMessages() {
 		msg := <-received
 		err := validateMessage(msg)
 		if err != nil {
-
 			return
 		}
 
 		if _, ok := endpoint.incomingMessages[msg.Type]; !ok {
-			endpoint.Transport.UnregisterRouting(msg.Type) //unregister routing from transport as there is no handler any more.
-			return
+			_ = endpoint.Transport.UnregisterRouting(msg.Type) //unregister routing from transport as there is no handler any more.
 		}
 
 		endpoint.startSagas(msg)

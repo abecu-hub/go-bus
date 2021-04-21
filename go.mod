@@ -1,4 +1,4 @@
-module dev.azure.com/finorun/Playground/_git/go-bus.git
+module github.com/abecu-hub/go-bus
 
 go 1.15
 

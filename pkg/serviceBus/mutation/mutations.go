@@ -1,6 +1,6 @@
 package mutation
 
-import "dev.azure.com/finorun/Playground/_git/go-bus.git/pkg/serviceBus"
+import "github.com/abecu-hub/go-bus/pkg/serviceBus"
 
 func Header(key string, value interface{}) serviceBus.OutgoingMutation {
 	return func(ctx *serviceBus.OutgoingMessageContext) {

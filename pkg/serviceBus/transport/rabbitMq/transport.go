@@ -1,11 +1,10 @@
 package rabbitMq
 
 import (
-	"dev.azure.com/finorun/Playground/_git/go-bus.git/pkg/serviceBus"
 	"encoding/json"
 	"fmt"
+	"github.com/abecu-hub/go-bus/pkg/serviceBus"
 	"github.com/streadway/amqp"
-	"log"
 	"time"
 )
 
@@ -40,22 +39,18 @@ type ConsumeSettings struct {
 func (rmq *Transport) connect() error {
 	conn, err := amqp.Dial(rmq.Url)
 	if err != nil {
-		fmt.Print(err)
 		return err
 	}
 	rmq.connection = conn
 
 	ch, err := conn.Channel()
 	if err != nil {
-		fmt.Print(err)
 		return err
 	}
 	rmq.currentChannel = ch
 
-	rmq.topology.Setup()
-
+	err = rmq.topology.Setup()
 	if err != nil {
-		fmt.Print(err)
 		return err
 	}
 
@@ -109,7 +104,10 @@ func (rmq *Transport) Start(endpoint *serviceBus.Endpoint) error {
 	}
 
 	for _, route := range rmq.routingBuffer {
-		rmq.topology.RegisterRouting(route)
+		err = rmq.topology.RegisterRouting(route)
+		if err != nil {
+			return err
+		}
 	}
 
 	msgs, err := rmq.currentChannel.Consume(
@@ -131,7 +129,6 @@ func (rmq *Transport) Start(endpoint *serviceBus.Endpoint) error {
 		for {
 			select {
 			case err = <-rmq.errorNotification:
-				log.Println(err)
 				rmq.reconnect(endpoint)
 				break Loop
 			case d := <-msgs:
@@ -170,9 +167,12 @@ func (rmq *Transport) UnregisterRouting(route string) error {
 }
 
 func (rmq *Transport) Publish(ctx *serviceBus.OutgoingMessageContext) error {
-	msg := rmq.createTransportMessage(ctx)
+	msg, err := rmq.createTransportMessage(ctx)
+	if err != nil {
+		return err
+	}
 
-	err := rmq.topology.Publish(msg)
+	err = rmq.topology.Publish(msg)
 	if err != nil {
 		return err
 	}
@@ -181,9 +181,12 @@ func (rmq *Transport) Publish(ctx *serviceBus.OutgoingMessageContext) error {
 }
 
 func (rmq *Transport) Send(destination string, ctx *serviceBus.OutgoingMessageContext) error {
-	msg := rmq.createTransportMessage(ctx)
+	msg, err := rmq.createTransportMessage(ctx)
+	if err != nil {
+		return err
+	}
 
-	err := rmq.topology.Send(destination, msg)
+	err = rmq.topology.Send(destination, msg)
 	if err != nil {
 		return err
 	}
@@ -192,9 +195,12 @@ func (rmq *Transport) Send(destination string, ctx *serviceBus.OutgoingMessageCo
 }
 
 func (rmq *Transport) SendLocal(ctx *serviceBus.OutgoingMessageContext) error {
-	msg := rmq.createTransportMessage(ctx)
+	msg, err := rmq.createTransportMessage(ctx)
+	if err != nil {
+		return err
+	}
 
-	err := rmq.topology.SendLocal(msg)
+	err = rmq.topology.SendLocal(msg)
 	if err != nil {
 		return err
 	}
@@ -202,10 +208,10 @@ func (rmq *Transport) SendLocal(ctx *serviceBus.OutgoingMessageContext) error {
 	return nil
 }
 
-func (rmq *Transport) createTransportMessage(ctx *serviceBus.OutgoingMessageContext) *amqp.Publishing {
+func (rmq *Transport) createTransportMessage(ctx *serviceBus.OutgoingMessageContext) (*amqp.Publishing, error) {
 	payload, err := json.Marshal(ctx.Payload)
 	if err != nil {
-		fmt.Println(err)
+		return nil, err
 	}
 
 	ctx.Headers["Origin"] = ctx.Origin
@@ -218,7 +224,7 @@ func (rmq *Transport) createTransportMessage(ctx *serviceBus.OutgoingMessageCont
 		Timestamp:     ctx.Timestamp,
 		Type:          ctx.Type,
 		CorrelationId: ctx.CorrelationId,
-	}
+	}, nil
 }
 
 func (rmq *Transport) createIncomingContext(d *amqp.Delivery) *serviceBus.IncomingMessageContext {
