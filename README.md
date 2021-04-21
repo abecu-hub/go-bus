@@ -102,9 +102,12 @@ func main() {
         AsIncoming().
         Handle(createUserHandler)
 
-    endpoint.Start()
+    err := endpoint.Start()
+    if err != nil {
+        panic(err)
+    }
 
-    err := endpoint.SendLocal("CreateUser", &CreateUser{
+    err = endpoint.SendLocal("CreateUser", &CreateUser{
     	UserName: "Name",
     	Email: "Name@email.com",
     })
