@@ -1,5 +1,7 @@
 # go-bus
 
+![image](https://user-images.githubusercontent.com/80049306/115728969-447db900-a385-11eb-972d-40c493946723.png)
+
 go-bus is a transport agnostic service bus implementation written in go. go-bus aims to provide high-level messaging capabilities to your services with close to no configuration at all and enables your service architecture to asynchronously communicate in an event-driven way. 
 
 **Please note: This library is not production ready yet.**
