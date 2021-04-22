@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/abecu-hub/go-bus/pkg/serviceBus"
-	"github.com/abecu-hub/go-bus/pkg/serviceBus/transport/rabbitMq"
+	"github.com/abecu-hub/go-bus/pkg/servicebus"
+	"github.com/abecu-hub/go-bus/pkg/servicebus/transport/rabbitmq"
 	"github.com/google/uuid"
 	"time"
 )
@@ -25,8 +25,8 @@ type User struct {
 }
 
 func main() {
-	endpoint := serviceBus.Create("awesomeService",
-		rabbitMq.Create("amqp://guest:guest@localhost:5672/"))
+	endpoint := servicebus.Create("awesomeService",
+		rabbitmq.Create("amqp://guest:guest@localhost:5672/"))
 
 	endpoint.Message(CreateUserMessage).
 		AsIncoming().
@@ -54,7 +54,7 @@ func main() {
 	}
 }
 
-func createUser(ctx *serviceBus.IncomingMessageContext) {
+func createUser(ctx *servicebus.IncomingMessageContext) {
 	user := new(CreateUser)
 	err := ctx.Bind(user)
 	if err != nil {
@@ -73,7 +73,7 @@ func createUser(ctx *serviceBus.IncomingMessageContext) {
 	ctx.Ack()
 }
 
-func userCreated(ctx *serviceBus.IncomingMessageContext) {
+func userCreated(ctx *servicebus.IncomingMessageContext) {
 	user := new(User)
 	err := ctx.Bind(user)
 	if err != nil {

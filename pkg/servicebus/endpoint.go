@@ -1,8 +1,8 @@
-package serviceBus
+package servicebus
 
 import (
 	"errors"
-	"github.com/abecu-hub/go-bus/pkg/serviceBus/saga"
+	"github.com/abecu-hub/go-bus/pkg/servicebus/saga"
 	"github.com/google/uuid"
 	"time"
 )

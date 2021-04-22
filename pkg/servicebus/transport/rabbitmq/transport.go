@@ -1,9 +1,9 @@
-package rabbitMq
+package rabbitmq
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/abecu-hub/go-bus/pkg/serviceBus"
+	"github.com/abecu-hub/go-bus/pkg/servicebus"
 	"github.com/streadway/amqp"
 	"time"
 )
@@ -12,13 +12,13 @@ type Transport struct {
 	Url               string
 	InputQueue        Queue
 	topology          Topology
-	endpoint          *serviceBus.Endpoint
+	endpoint          *servicebus.Endpoint
 	routingBuffer     []string
 	started           bool
 	connection        *amqp.Connection
 	currentChannel    *amqp.Channel
 	errorNotification chan *amqp.Error
-	messageReceived   chan *serviceBus.IncomingMessageContext
+	messageReceived   chan *servicebus.IncomingMessageContext
 }
 
 type Queue struct {
@@ -81,7 +81,7 @@ func (rmq *Transport) isConnected() bool {
 	return rmq.started && !rmq.connection.IsClosed()
 }
 
-func (rmq *Transport) reconnect(endpoint *serviceBus.Endpoint) {
+func (rmq *Transport) reconnect(endpoint *servicebus.Endpoint) {
 	_ = rmq.currentChannel.Cancel("", false)
 	_ = rmq.connection.Close()
 
@@ -94,7 +94,7 @@ func (rmq *Transport) reconnect(endpoint *serviceBus.Endpoint) {
 	}
 }
 
-func (rmq *Transport) Start(endpoint *serviceBus.Endpoint) error {
+func (rmq *Transport) Start(endpoint *servicebus.Endpoint) error {
 	rmq.endpoint = endpoint
 	rmq.InputQueue.Name = endpoint.Name
 
@@ -140,7 +140,7 @@ func (rmq *Transport) Start(endpoint *serviceBus.Endpoint) error {
 	return nil
 }
 
-func (rmq *Transport) MessageReceived(eventChannel chan *serviceBus.IncomingMessageContext) chan *serviceBus.IncomingMessageContext {
+func (rmq *Transport) MessageReceived(eventChannel chan *servicebus.IncomingMessageContext) chan *servicebus.IncomingMessageContext {
 	rmq.messageReceived = eventChannel
 	return eventChannel
 }
@@ -166,7 +166,7 @@ func (rmq *Transport) UnregisterRouting(route string) error {
 	return nil
 }
 
-func (rmq *Transport) Publish(ctx *serviceBus.OutgoingMessageContext) error {
+func (rmq *Transport) Publish(ctx *servicebus.OutgoingMessageContext) error {
 	msg, err := rmq.createTransportMessage(ctx)
 	if err != nil {
 		return err
@@ -180,7 +180,7 @@ func (rmq *Transport) Publish(ctx *serviceBus.OutgoingMessageContext) error {
 	return nil
 }
 
-func (rmq *Transport) Send(destination string, ctx *serviceBus.OutgoingMessageContext) error {
+func (rmq *Transport) Send(destination string, ctx *servicebus.OutgoingMessageContext) error {
 	msg, err := rmq.createTransportMessage(ctx)
 	if err != nil {
 		return err
@@ -194,7 +194,7 @@ func (rmq *Transport) Send(destination string, ctx *serviceBus.OutgoingMessageCo
 	return nil
 }
 
-func (rmq *Transport) SendLocal(ctx *serviceBus.OutgoingMessageContext) error {
+func (rmq *Transport) SendLocal(ctx *servicebus.OutgoingMessageContext) error {
 	msg, err := rmq.createTransportMessage(ctx)
 	if err != nil {
 		return err
@@ -208,7 +208,7 @@ func (rmq *Transport) SendLocal(ctx *serviceBus.OutgoingMessageContext) error {
 	return nil
 }
 
-func (rmq *Transport) createTransportMessage(ctx *serviceBus.OutgoingMessageContext) (*amqp.Publishing, error) {
+func (rmq *Transport) createTransportMessage(ctx *servicebus.OutgoingMessageContext) (*amqp.Publishing, error) {
 	payload, err := json.Marshal(ctx.Payload)
 	if err != nil {
 		return nil, err
@@ -227,8 +227,8 @@ func (rmq *Transport) createTransportMessage(ctx *serviceBus.OutgoingMessageCont
 	}, nil
 }
 
-func (rmq *Transport) createIncomingContext(d *amqp.Delivery) *serviceBus.IncomingMessageContext {
-	ctx := serviceBus.CreateIncomingContext(rmq.endpoint)
+func (rmq *Transport) createIncomingContext(d *amqp.Delivery) *servicebus.IncomingMessageContext {
+	ctx := servicebus.CreateIncomingContext(rmq.endpoint)
 	ctx.Headers = d.Headers
 	ctx.Payload = d.Body
 	ctx.Type = d.Type

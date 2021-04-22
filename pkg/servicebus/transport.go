@@ -1,4 +1,4 @@
-package serviceBus
+package servicebus
 
 type Transport interface {
 	Start(endpoint *Endpoint) error

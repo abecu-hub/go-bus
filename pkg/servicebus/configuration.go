@@ -1,4 +1,4 @@
-package serviceBus
+package servicebus
 
 type OutgoingMutation func(ctx *OutgoingMessageContext)
 type IncomingMutation func(ctx *IncomingMessageContext)

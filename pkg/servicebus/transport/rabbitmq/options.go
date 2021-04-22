@@ -1,4 +1,4 @@
-package rabbitMq
+package rabbitmq
 
 func UseDefaultTopology(exchange string) func(*Transport) {
 	return func(rmq *Transport) {

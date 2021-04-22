@@ -1,9 +1,9 @@
-package serviceBus
+package servicebus
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/abecu-hub/go-bus/pkg/serviceBus/saga"
+	"github.com/abecu-hub/go-bus/pkg/servicebus/saga"
 	"time"
 )
 
