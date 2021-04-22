@@ -2,6 +2,8 @@
 
 go-bus is a transport agnostic service bus implementation written in go. go-bus aims to provide high-level messaging capabilities to your services with close to no configuration at all and enables your service architecture to asynchronously communicate in an event-driven way. 
 
+**Please note: This library is not production ready yet.**
+
 ## Getting started
 
 Create a service bus endpoint with RabbitMQ transport
