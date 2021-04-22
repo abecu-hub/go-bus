@@ -8,6 +8,8 @@ Build & Test: ![build&test](https://github.com/abecu-hub/go-bus/actions/workflow
 
 **Please note: This library is not production ready yet.**
 
+Please read the [wiki](https://github.com/abecu-hub/go-bus/wiki) for more information.
+
 ## Getting started
 
 Create a service bus endpoint with RabbitMQ transport
