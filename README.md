@@ -15,8 +15,8 @@ Please read the [wiki](https://github.com/abecu-hub/go-bus/wiki) for more inform
 Create a service bus endpoint with RabbitMQ transport
 
 ```go
-endpoint := serviceBus.Create("awesomeService",
-    rabbitMq.Create("amqp://guest:guest@localhost:5672/"))
+endpoint := servicebus.Create("awesomeService",
+    rabbitmq.Create("amqp://guest:guest@localhost:5672/"))
 ```
 
 You can then configure incoming messages you want to handle like this:
@@ -26,7 +26,7 @@ endpoint.Message("CreateUser").
     AsIncoming().
     Handle(createUserHandler)
 
-func createUserHandler(ctx *serviceBus.IncomingMessageContext) {
+func createUserHandler(ctx *servicebus.IncomingMessageContext) {
     fmt.Println("received CreateUser!")
     ctx.Ack()
 }
@@ -54,7 +54,7 @@ type User struct {
     Email    string
 }
 
-func createUserHandler(ctx *serviceBus.IncomingMessageContext) {
+func createUserHandler(ctx *servicebus.IncomingMessageContext) {
     user := new(CreateUser)
     ctx.Bind(user)
     fmt.Println(user.UserName + " created!")
@@ -103,8 +103,8 @@ type CreateUser struct {
 }
 
 func main() {
-    endpoint := serviceBus.Create("awesomeService",
-        rabbitMq.Create("amqp://guest:guest@localhost:5672/"))
+    endpoint := servicebus.Create("awesomeService",
+        rabbitmq.Create("amqp://guest:guest@localhost:5672/"))
 
     endpoint.Message("CreateUser").
         AsIncoming().
@@ -124,7 +124,7 @@ func main() {
     }
 }
 
-func createUserHandler(ctx *serviceBus.IncomingMessageContext) {
+func createUserHandler(ctx *servicebus.IncomingMessageContext) {
     user := new(CreateUser)
     err := ctx.Bind(user)
     if err != nil {
