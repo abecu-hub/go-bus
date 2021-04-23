@@ -58,9 +58,30 @@ type MongoStore struct {
 	collection *mongo.Collection
 }
 
-func CreateMongoStore(client *mongo.Client, database string, collection string) Store {
-	//Todo: Check if indices are set to CorrelationID and Type
-	return &MongoStore{client: client, collection: client.Database(database).Collection(collection)}
+func (store *MongoStore) ensureCompoundIndex() error {
+
+	index := mongo.IndexModel{
+		Keys:    bson.D{{"correlationId", 1}, {"type", 1}},
+		Options: options.Index().SetUnique(true),
+	}
+
+	_, err := store.collection.Indexes().CreateOne(context.Background(), index)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func CreateMongoStore(client *mongo.Client, database string, collection string) (Store, error) {
+	store := &MongoStore{
+		client:     client,
+		collection: client.Database(database).Collection(collection),
+	}
+	err := store.ensureCompoundIndex()
+	if err != nil {
+		return nil, err
+	}
+	return store, nil
 }
 
 func (store *MongoStore) SagaExists(correlationId string, sagaType string) (bool, error) {
@@ -91,7 +112,7 @@ func (store *MongoStore) RequestSaga(correlationId string, sagaType string) (*Co
 	saga := new(Saga)
 	ctx := context.Background()
 	err = mongo.WithSession(ctx, session, func(sc mongo.SessionContext) error {
-		_, err := store.collection.UpdateOne(sc, bson.M{"correlationid": correlationId, "type": sagaType}, bson.M{"$set": bson.M{"locktime": time.Now().UTC()}})
+		_, err := store.collection.UpdateOne(sc, bson.M{"correlationId": correlationId, "type": sagaType}, bson.M{"$set": bson.M{"locktime": time.Now().UTC()}})
 		if err != nil {
 			if err = session.AbortTransaction(sc); err != nil {
 				panic(err)
@@ -99,7 +120,7 @@ func (store *MongoStore) RequestSaga(correlationId string, sagaType string) (*Co
 			panic(err)
 		}
 
-		err = store.collection.FindOne(sc, bson.M{"correlationid": correlationId, "type": sagaType}).Decode(saga)
+		err = store.collection.FindOne(sc, bson.M{"correlationId": correlationId, "type": sagaType}).Decode(saga)
 		if err != nil {
 			if err = session.AbortTransaction(sc); err != nil {
 				panic(err)
@@ -140,7 +161,7 @@ func (store *MongoStore) CreateSaga(correlationId string, sagaType string) error
 func (store *MongoStore) UpdateState(session Session, correlationId string, sagaType string, state map[string]interface{}) error {
 	mongoSession := session.(*MongoSession)
 	err := mongo.WithSession(mongoSession.Context, mongoSession.Session, func(sc mongo.SessionContext) error {
-		_, err := store.collection.UpdateOne(sc, bson.M{"correlationid": correlationId, "type": sagaType}, bson.M{"$set": bson.M{"state": state}})
+		_, err := store.collection.UpdateOne(sc, bson.M{"correlationId": correlationId, "type": sagaType}, bson.M{"$set": bson.M{"state": state}})
 		//Update failed, abort transaction
 		if err != nil {
 			if err = mongoSession.Session.AbortTransaction(sc); err != nil {
@@ -160,7 +181,7 @@ func (store *MongoStore) UpdateState(session Session, correlationId string, saga
 func (store *MongoStore) CompleteSaga(session Session, correlationId string, sagaType string) error {
 	mongoSession := session.(*MongoSession)
 	err := mongo.WithSession(mongoSession.Context, mongoSession.Session, func(sc mongo.SessionContext) error {
-		_, err := store.collection.UpdateOne(sc, bson.M{"correlationid": correlationId, "type": sagaType}, bson.M{"$set": bson.M{"iscompleted": true}})
+		_, err := store.collection.UpdateOne(sc, bson.M{"correlationId": correlationId, "type": sagaType}, bson.M{"$set": bson.M{"isCompleted": true}})
 		//Update failed, abort transaction
 		if err != nil {
 			if err = mongoSession.Session.AbortTransaction(sc); err != nil {

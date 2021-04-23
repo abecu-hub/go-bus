@@ -151,6 +151,7 @@ func (endpoint *Endpoint) handleReceivedMessages() {
 
 		if _, ok := endpoint.incomingMessages[msg.Type]; !ok {
 			_ = endpoint.Transport.UnregisterRouting(msg.Type) //unregister routing from transport as there is no handler any more.
+			return
 		}
 
 		endpoint.startSagas(msg)
@@ -162,8 +163,8 @@ func (endpoint *Endpoint) handleReceivedMessages() {
 }
 
 func (endpoint *Endpoint) startSagas(ctx *IncomingMessageContext) {
-	sagas := endpoint.incomingMessages[ctx.Type].sagas
-	for _, s := range sagas {
+	config := endpoint.incomingMessages[ctx.Type]
+	for _, s := range config.sagas {
 		exists, err := endpoint.SagaStore.SagaExists(ctx.CorrelationId, s)
 		if err != nil {
 			panic("Error on checking saga existence")
