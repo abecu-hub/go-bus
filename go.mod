@@ -3,6 +3,7 @@ module github.com/abecu-hub/go-bus
 go 1.15
 
 require (
+	github.com/Azure/azure-service-bus-go v0.10.11
 	github.com/aws/aws-sdk-go v1.38.18 // indirect
 	github.com/golang/snappy v0.0.3 // indirect
 	github.com/google/uuid v1.2.0
