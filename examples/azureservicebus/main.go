@@ -1,53 +1,35 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"github.com/Azure/azure-service-bus-go"
+	"github.com/abecu-hub/go-bus/pkg/servicebus"
+	"github.com/abecu-hub/go-bus/pkg/servicebus/transport/azureservicebus"
 	"os"
-	"time"
 )
 
+type MyMessage struct {
+	Message string
+}
+
 func main() {
-	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
-	defer cancel()
+	asb := azureservicebus.Create(os.Getenv("CONSTRING"))
+	endpoint := servicebus.Create("awesomeservice", asb)
+	endpoint.Message("MyMessage").
+		AsIncoming().
+		Handle(myMessageHandle)
 
-	ns, err := servicebus.NewNamespace(servicebus.NamespaceWithConnectionString(
-		os.Getenv("CONSTRING")))
+	err := endpoint.Start()
 	if err != nil {
-		panic("Namespace failed")
+		panic(err)
 	}
-	qm := ns.NewQueueManager()
-	source, err := ensureQueue(ctx, qm, "awesomeService")
+	err = endpoint.SendLocal("MyMessage", &MyMessage{
+		Message: "Hallo Welt!",
+	})
 	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	sourceQueue, err := ns.NewQueue(source.Name)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer func() {
-		_ = sourceQueue.Close(ctx)
-	}()
-
-	if err := sourceQueue.Send(ctx, servicebus.NewMessageFromString("Hello World!")); err != nil {
-		fmt.Println(err)
-		return
+		panic(err)
 	}
 }
 
-func ensureQueue(ctx context.Context, qm *servicebus.QueueManager, name string, opts ...servicebus.QueueManagementOption) (*servicebus.QueueEntity, error) {
-	qe, err := qm.Get(ctx, name)
-	if err == nil {
-		_ = qm.Delete(ctx, name)
-	}
-
-	qe, err = qm.Put(ctx, name, opts...)
-	if err != nil {
-		fmt.Println(err)
-		return nil, err
-	}
-	return qe, nil
+func myMessageHandle(ctx *servicebus.IncomingMessageContext) {
+	fmt.Println("MyMessage received!")
 }
