@@ -2,6 +2,7 @@ package servicebus
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/abecu-hub/go-bus/pkg/servicebus/saga"
 	"time"
@@ -53,6 +54,24 @@ type IncomingMessageContext struct {
 
 func (context *IncomingMessageContext) setEndpoint(endpoint *Endpoint) {
 	context.endpoint = endpoint
+}
+
+func (context *IncomingMessageContext) validate() error {
+
+	if context.Origin == "" {
+		return errors.New("Message has no Origin.")
+	}
+	if context.Type == "" {
+		return errors.New("Message has no Type.")
+	}
+	if context.MessageId == "" {
+		return errors.New("Message has no MessageId.")
+	}
+	if context.CorrelationId == "" {
+		return errors.New("Message has no CorrelationId.")
+	}
+	return nil
+
 }
 
 /*

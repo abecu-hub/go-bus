@@ -1,7 +1,6 @@
 package servicebus
 
 import (
-	"errors"
 	"github.com/abecu-hub/go-bus/pkg/servicebus/saga"
 	"github.com/google/uuid"
 	"time"
@@ -128,38 +127,31 @@ func (endpoint *Endpoint) SendLocal(messageType string, msg interface{}, options
 	return nil
 }
 
-func validateMessage(ctx *IncomingMessageContext) error {
-	if ctx.Origin == "" {
-		return errors.New("Message has no Origin.")
-	}
-	if ctx.Type == "" {
-		return errors.New("Message has no Type.")
-	}
-	if ctx.MessageId == "" {
-		return errors.New("Message has no MessageId.")
-	}
-	if ctx.CorrelationId == "" {
-		return errors.New("Message has no CorrelationId.")
-	}
-	return nil
-}
-
 func (endpoint *Endpoint) handleReceivedMessages() {
 	received := endpoint.Transport.MessageReceived(make(chan *IncomingMessageContext))
 	for {
 		msg := <-received
 		msg.setEndpoint(endpoint)
-		err := validateMessage(msg)
+		err := msg.validate()
 		if err != nil {
+			//If message could not be validated, it is most likely not produced by the go-bus service bus, so we discard the message by default.
+			msg.Discard()
 			return
 		}
 
 		if _, ok := endpoint.incomingMessages[msg.Type]; !ok {
-			_ = endpoint.Transport.UnregisterRouting(msg.Type) //unregister routing from transport as there is no handler any more.
+			//unregister routing from transport as there is no handler any more and discard the message by default.
+			_ = endpoint.Transport.UnregisterRouting(msg.Type)
+			msg.Discard()
 			return
 		}
 
-		endpoint.startSagas(msg)
+		err = endpoint.startSagas(msg)
+		if err != nil {
+			//If saga could not be checked/created it is most likey a transient issue with database access, so the message will be requeued by default.
+			msg.Retry()
+			return
+		}
 
 		for _, handler := range endpoint.incomingMessages[msg.Type].handler {
 			handler(msg)
@@ -167,12 +159,12 @@ func (endpoint *Endpoint) handleReceivedMessages() {
 	}
 }
 
-func (endpoint *Endpoint) startSagas(ctx *IncomingMessageContext) {
+func (endpoint *Endpoint) startSagas(ctx *IncomingMessageContext) error {
 	config := endpoint.incomingMessages[ctx.Type]
 	for _, s := range config.sagas {
 		exists, err := endpoint.SagaStore.SagaExists(ctx.CorrelationId, s)
 		if err != nil {
-			panic("Error on checking saga existence")
+			return err
 		}
 		if exists {
 			continue
@@ -180,10 +172,10 @@ func (endpoint *Endpoint) startSagas(ctx *IncomingMessageContext) {
 
 		err = endpoint.SagaStore.CreateSaga(ctx.CorrelationId, s)
 		if err != nil {
-			panic("Error on creating new saga")
+			return err
 		}
-
 	}
+	return nil
 }
 
 func (endpoint *Endpoint) createMessageContext(messageType string, payload interface{}, mutations []OutgoingMutation) *OutgoingMessageContext {
