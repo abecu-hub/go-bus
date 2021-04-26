@@ -63,6 +63,10 @@ func (endpoint *Endpoint) Message(messageType string) *MessageConfiguration {
 Start receiving message with the ServiceBus
 */
 func (endpoint *Endpoint) Start() error {
+	if endpoint.Transport == nil {
+		panic("Endpoint has no transport configured.")
+	}
+
 	go endpoint.handleReceivedMessages()
 
 	err := endpoint.Transport.Start(endpoint)

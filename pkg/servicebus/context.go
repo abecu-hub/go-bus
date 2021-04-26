@@ -129,7 +129,7 @@ func (context *IncomingMessageContext) SendLocal(messageType string, msg interfa
 func (context *IncomingMessageContext) RequestSaga(sagaType string) (*saga.Context, error) {
 	s, err := context.endpoint.SagaStore.RequestSaga(context.CorrelationId, sagaType)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	if s.State == nil {
