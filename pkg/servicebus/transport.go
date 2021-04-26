@@ -1,7 +1,7 @@
 package servicebus
 
 type Transport interface {
-	Start(endpoint *Endpoint) error
+	Start(endpointName string) error
 	RegisterRouting(route string) error
 	UnregisterRouting(route string) error
 	Publish(message *OutgoingMessageContext) error

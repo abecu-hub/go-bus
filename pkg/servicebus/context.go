@@ -51,10 +51,8 @@ type IncomingMessageContext struct {
 	Test          string
 }
 
-func CreateIncomingContext(endpoint *Endpoint) *IncomingMessageContext {
-	return &IncomingMessageContext{
-		endpoint: endpoint,
-	}
+func (context *IncomingMessageContext) setEndpoint(endpoint *Endpoint) {
+	context.endpoint = endpoint
 }
 
 /*

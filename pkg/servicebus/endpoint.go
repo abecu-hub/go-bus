@@ -69,7 +69,7 @@ func (endpoint *Endpoint) Start() error {
 
 	go endpoint.handleReceivedMessages()
 
-	err := endpoint.Transport.Start(endpoint)
+	err := endpoint.Transport.Start(endpoint.Name)
 	if err != nil {
 		return err
 	}
@@ -148,6 +148,7 @@ func (endpoint *Endpoint) handleReceivedMessages() {
 	received := endpoint.Transport.MessageReceived(make(chan *IncomingMessageContext))
 	for {
 		msg := <-received
+		msg.setEndpoint(endpoint)
 		err := validateMessage(msg)
 		if err != nil {
 			return

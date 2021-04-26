@@ -8,7 +8,7 @@ type TestTransport struct {
 	routes map[string]interface{}
 }
 
-func (TestTransport) Start(endpoint *Endpoint) error {
+func (TestTransport) Start(endpointName string) error {
 	panic("implement me")
 }
 
