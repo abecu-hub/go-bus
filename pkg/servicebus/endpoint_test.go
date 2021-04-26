@@ -8,7 +8,7 @@ type TestTransport struct {
 	routes map[string]interface{}
 }
 
-func (TestTransport) Start(endpoint *Endpoint) error {
+func (TestTransport) Start(endpointName string) error {
 	panic("implement me")
 }
 
@@ -113,7 +113,7 @@ func TestMessageValidationWithValidMessage(t *testing.T) {
 		CorrelationId: "MyCorrelationId",
 		MessageId:     "MyMessageId",
 	}
-	err := validateMessage(ctx)
+	err := ctx.validate()
 	if err != nil {
 		t.Errorf("Message validation failed although message is valid.")
 	}
@@ -128,28 +128,28 @@ func TestMessageValidationWithInvalidMessage(t *testing.T) {
 	}
 
 	ctx.CorrelationId = ""
-	err := validateMessage(ctx)
+	err := ctx.validate()
 	if err == nil {
 		t.Errorf("Message validation did not fail with empty or unset CorrelationId.")
 	}
 	ctx.CorrelationId = "MyCorrelationId"
 
 	ctx.Type = ""
-	err = validateMessage(ctx)
+	err = ctx.validate()
 	if err == nil {
 		t.Errorf("Message validation did not fail with empty or unset Type.")
 	}
 	ctx.Type = "MyType"
 
 	ctx.Origin = ""
-	err = validateMessage(ctx)
+	err = ctx.validate()
 	if err == nil {
 		t.Errorf("Message validation did not fail with empty or unset Origin.")
 	}
 	ctx.Origin = "MyService"
 
 	ctx.MessageId = ""
-	err = validateMessage(ctx)
+	err = ctx.validate()
 	if err == nil {
 		t.Errorf("Message validation did not fail with empty or unset MessageId.")
 	}

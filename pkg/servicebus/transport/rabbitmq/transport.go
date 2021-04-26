@@ -12,7 +12,6 @@ type Transport struct {
 	Url               string
 	InputQueue        Queue
 	topology          Topology
-	endpoint          *servicebus.Endpoint
 	routingBuffer     []string
 	started           bool
 	connection        *amqp.Connection
@@ -81,22 +80,22 @@ func (rmq *Transport) isConnected() bool {
 	return rmq.started && !rmq.connection.IsClosed()
 }
 
-func (rmq *Transport) reconnect(endpoint *servicebus.Endpoint) {
+func (rmq *Transport) reconnect() {
 	_ = rmq.currentChannel.Cancel("", false)
 	_ = rmq.connection.Close()
 
-	err := rmq.Start(endpoint)
+	err := rmq.Start(rmq.InputQueue.Name)
 	for err != nil {
-		err = rmq.Start(endpoint)
+		err = rmq.Start(rmq.InputQueue.Name)
 		if err != nil {
 			time.Sleep(5 * time.Second)
 		}
 	}
 }
 
-func (rmq *Transport) Start(endpoint *servicebus.Endpoint) error {
-	rmq.endpoint = endpoint
-	rmq.InputQueue.Name = endpoint.Name
+func (rmq *Transport) Start(endpointName string) error {
+
+	rmq.InputQueue.Name = endpointName
 
 	err := rmq.connect()
 	if err != nil {
@@ -129,7 +128,7 @@ func (rmq *Transport) Start(endpoint *servicebus.Endpoint) error {
 		for {
 			select {
 			case err = <-rmq.errorNotification:
-				rmq.reconnect(endpoint)
+				rmq.reconnect()
 				break Loop
 			case d := <-msgs:
 				rmq.messageReceived <- rmq.createIncomingContext(&d)
@@ -228,7 +227,7 @@ func (rmq *Transport) createTransportMessage(ctx *servicebus.OutgoingMessageCont
 }
 
 func (rmq *Transport) createIncomingContext(d *amqp.Delivery) *servicebus.IncomingMessageContext {
-	ctx := servicebus.CreateIncomingContext(rmq.endpoint)
+	ctx := new(servicebus.IncomingMessageContext)
 	ctx.Headers = d.Headers
 	ctx.Payload = d.Body
 	ctx.Type = d.Type
