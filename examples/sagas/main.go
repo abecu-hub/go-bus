@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"github.com/abecu-hub/go-bus/pkg/servicebus"
-	"github.com/abecu-hub/go-bus/pkg/servicebus/saga"
+	"github.com/abecu-hub/go-bus/pkg/servicebus/saga/mongodb"
 	"github.com/abecu-hub/go-bus/pkg/servicebus/transport/rabbitmq"
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
@@ -50,9 +50,9 @@ type OrderDelivered struct {
 }
 
 func main() {
-	mongoSagaStore, err := saga.CreateMongoStore(createMongoClient(),
+	mongoSagaStore, err := mongodb.CreateMongoStore(createMongoClient(),
 		"OrderServiceDB",
-		"sagas")
+		"sagas", mongodb.ExpireInSeconds(30))
 	if err != nil {
 		panic("Error initializing MongoDB saga store!")
 	}
