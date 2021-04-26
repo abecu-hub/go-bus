@@ -13,7 +13,6 @@ type Transport struct {
 	Namespace        *asb.Namespace
 	QueueManager     *asb.QueueManager
 	Queue            *asb.Queue
-	Endpoint         *servicebus.Endpoint
 	routingBuffer    []string
 	messageReceived  chan *servicebus.IncomingMessageContext
 }
@@ -24,14 +23,14 @@ func Create(connectionString string) *Transport {
 	}
 }
 
-func (t *Transport) Start(endpoint *servicebus.Endpoint) error {
+func (t *Transport) Start(endpointName string) error {
 	ns, err := asb.NewNamespace(asb.NamespaceWithConnectionString(t.ConnectionString))
 	if err != nil {
 		return err
 	}
 	t.Namespace = ns
 	t.QueueManager = ns.NewQueueManager()
-	qe, err := t.ensureQueue(endpoint.Name)
+	qe, err := t.ensureQueue(endpointName)
 	if err != nil {
 		return err
 	}
@@ -39,8 +38,6 @@ func (t *Transport) Start(endpoint *servicebus.Endpoint) error {
 	if err != nil {
 		return err
 	}
-
-	t.Endpoint = endpoint
 
 	for _, route := range t.routingBuffer {
 		err = t.subscribe(route)
@@ -50,8 +47,19 @@ func (t *Transport) Start(endpoint *servicebus.Endpoint) error {
 	}
 
 	//Todo: Start listening to messages here
+	go t.consume()
 
 	return nil
+}
+
+func (t *Transport) consume() {
+	var handler asb.HandlerFunc = func(ctx context.Context, msg *asb.Message) error {
+
+		return msg.Complete(ctx)
+	}
+	for {
+		t.Queue.Receive(context.Background(), handler)
+	}
 }
 
 func (t *Transport) RegisterRouting(route string) error {
@@ -175,4 +183,12 @@ func (t *Transport) createTransportMessage(ctx *servicebus.OutgoingMessageContex
 	}
 
 	return asb.NewMessage(payload), nil
+}
+
+func (t *Transport) createIncomingContext(msg *asb.Message) (*servicebus.IncomingMessageContext, error) {
+	ctx := new(servicebus.IncomingMessageContext)
+	ctx.Ack = func() {
+		_ = msg.Complete(context.Background())
+	}
+	return nil, nil
 }
