@@ -4,7 +4,7 @@ type OutgoingMutation func(ctx *OutgoingMessageContext)
 type IncomingMutation func(ctx *IncomingMessageContext)
 
 type MessageConfiguration struct {
-	endpoint    *Endpoint
+	endpoint    *ServiceBusEndpoint
 	messageType string
 }
 
@@ -29,7 +29,7 @@ type IncomingMessageConfiguration struct {
 //Handles the incoming message context with the given function
 func (config *IncomingMessageConfiguration) Handle(handler func(ctx *IncomingMessageContext)) *IncomingMessageConfiguration {
 	config.handler = append(config.handler, handler)
-	config.messageConfiguration.endpoint.Transport.RegisterRouting(config.messageConfiguration.messageType)
+	config.messageConfiguration.endpoint.transport.RegisterRouting(config.messageConfiguration.messageType)
 	return config
 }
 
@@ -42,7 +42,7 @@ func (config *IncomingMessageConfiguration) Mutate(behavior IncomingMutation) *I
 //Start a saga of the given type whenever a message of this configuration has been received.
 func (config *IncomingMessageConfiguration) StartSaga(saga string) *IncomingMessageConfiguration {
 	if config.messageConfiguration.endpoint.SagaStore == nil {
-		panic("Endpoint has no saga store configured.")
+		panic("ServiceBusEndpoint has no saga store configured.")
 	}
 	config.sagas = append(config.sagas, saga)
 	return config

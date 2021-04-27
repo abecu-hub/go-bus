@@ -80,7 +80,7 @@ func userCreated(ctx *servicebus.IncomingMessageContext) {
 		fmt.Println(err)
 	}
 
-	fmt.Println("User created!", "ID:", user.ID, "| Name:", user.Name, "| Email:", user.Email)
+	fmt.Println("User created!", "ID:", user.ID, "| name:", user.Name, "| Email:", user.Email)
 
 	ctx.Ack()
 }

@@ -9,20 +9,21 @@ import (
 )
 
 type OutgoingMessageContext struct {
-	Origin        string
-	Type          string
-	CorrelationId string
-	MessageId     string
-	Timestamp     time.Time
-	Payload       interface{}
-	Priority      uint8
-	Headers       map[string]interface{}
-	endpoint      *Endpoint
-	Version       string
-	IsCancelled   bool
+	Origin               string
+	Type                 string
+	CorrelationId        string
+	CorrelationTimestamp time.Time
+	MessageId            string
+	Timestamp            time.Time
+	Payload              interface{}
+	Priority             uint8
+	Headers              map[string]interface{}
+	endpoint             Endpoint
+	Version              string
+	IsCancelled          bool
 }
 
-func CreateOutgoingContext(endpoint *Endpoint) *OutgoingMessageContext {
+func CreateOutgoingContext(endpoint Endpoint) *OutgoingMessageContext {
 	return &OutgoingMessageContext{
 		endpoint: endpoint,
 	}
@@ -33,26 +34,27 @@ func (context *OutgoingMessageContext) Cancel() {
 }
 
 /*
-The IncomingMessageContext holds the message information of the Endpoint instance that handled the message.
+The IncomingMessageContext holds the message information of the ServiceBusEndpoint instance that handled the message.
 */
 type IncomingMessageContext struct {
-	Headers       map[string]interface{}
-	Origin        string
-	Payload       []byte
-	Type          string
-	CorrelationId string
-	MessageId     string
-	Timestamp     time.Time
-	Priority      uint8
-	endpoint      *Endpoint
-	Ack           func()
-	Retry         func()
-	Discard       func()
-	Fail          func()
-	Test          string
+	Headers              map[string]interface{}
+	Origin               string
+	Payload              []byte
+	Type                 string
+	CorrelationId        string
+	CorrelationTimestamp time.Time
+	MessageId            string
+	Timestamp            time.Time
+	Priority             uint8
+	endpoint             Endpoint
+	Ack                  func()
+	Retry                func()
+	Discard              func()
+	Fail                 func()
+	Test                 string
 }
 
-func (context *IncomingMessageContext) setEndpoint(endpoint *Endpoint) {
+func (context *IncomingMessageContext) setEndpoint(endpoint Endpoint) {
 	context.endpoint = endpoint
 }
 
@@ -92,6 +94,7 @@ func (context *IncomingMessageContext) Reply(messageType string, msg interface{}
 	origin := fmt.Sprintf("%v", context.Headers["Origin"])
 	options = append(options, func(m *OutgoingMessageContext) {
 		m.CorrelationId = context.CorrelationId
+		m.CorrelationTimestamp = context.CorrelationTimestamp
 	})
 	err := context.endpoint.Send(messageType, origin, msg, options...)
 	if err != nil {
@@ -101,11 +104,12 @@ func (context *IncomingMessageContext) Reply(messageType string, msg interface{}
 }
 
 /*
-Send a message to a specific Endpoint.
+Send a message to a specific ServiceBusEndpoint.
 */
 func (context *IncomingMessageContext) Send(messageType string, destination string, msg interface{}, options ...OutgoingMutation) error {
 	options = append(options, func(m *OutgoingMessageContext) {
 		m.CorrelationId = context.CorrelationId
+		m.CorrelationTimestamp = context.CorrelationTimestamp
 	})
 	err := context.endpoint.Send(messageType, destination, msg, options...)
 	if err != nil {
@@ -120,6 +124,7 @@ Publish a message to all subscribers.
 func (context *IncomingMessageContext) Publish(messageType string, msg interface{}, options ...OutgoingMutation) error {
 	options = append(options, func(m *OutgoingMessageContext) {
 		m.CorrelationId = context.CorrelationId
+		m.CorrelationTimestamp = context.CorrelationTimestamp
 	})
 	err := context.endpoint.Publish(messageType, msg, options...)
 	if err != nil {
@@ -129,11 +134,12 @@ func (context *IncomingMessageContext) Publish(messageType string, msg interface
 }
 
 /*
-Send the message to the local Endpoint.
+Send the message to the local ServiceBusEndpoint.
 */
 func (context *IncomingMessageContext) SendLocal(messageType string, msg interface{}, options ...OutgoingMutation) error {
 	options = append(options, func(m *OutgoingMessageContext) {
 		m.CorrelationId = context.CorrelationId
+		m.CorrelationTimestamp = context.CorrelationTimestamp
 	})
 	err := context.endpoint.SendLocal(messageType, msg, options...)
 	if err != nil {
@@ -144,7 +150,7 @@ func (context *IncomingMessageContext) SendLocal(messageType string, msg interfa
 
 //Request a saga from the persistence store and applies a transaction lock
 func (context *IncomingMessageContext) RequestSaga(sagaType string) (*saga.Context, error) {
-	s, err := context.endpoint.SagaStore.RequestSaga(context.CorrelationId, sagaType)
+	s, err := context.endpoint.SagaStore().RequestSaga(context.CorrelationId, sagaType)
 	if err != nil {
 		return nil, err
 	}
