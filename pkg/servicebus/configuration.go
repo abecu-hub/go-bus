@@ -41,7 +41,7 @@ func (config *IncomingMessageConfiguration) Mutate(behavior IncomingMutation) *I
 
 //Start a saga of the given type whenever a message of this configuration has been received.
 func (config *IncomingMessageConfiguration) StartSaga(saga string) *IncomingMessageConfiguration {
-	if config.messageConfiguration.endpoint.SagaStore == nil {
+	if config.messageConfiguration.endpoint.sagaStore == nil {
 		panic("ServiceBusEndpoint has no saga store configured.")
 	}
 	config.sagas = append(config.sagas, saga)

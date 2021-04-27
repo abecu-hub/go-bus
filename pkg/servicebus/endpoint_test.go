@@ -46,7 +46,7 @@ type MyMessage struct {
 
 func TestCreateOutgoingContext(t *testing.T) {
 	serviceName := "ServiceName"
-	endpoint := Create(serviceName, &TestTransport{})
+	endpoint := Create(serviceName, &TestTransport{}).(*ServiceBusEndpoint)
 	payload := &MyMessage{Name: "HelloWorld"}
 	ctx := endpoint.createMessageContext("MyMessage", payload, nil)
 	if ctx.Origin != serviceName {
@@ -73,7 +73,7 @@ func TestCreateOutgoingContext(t *testing.T) {
 func TestMutateOutgoingContext(t *testing.T) {
 	serviceName := "ServiceName"
 	messageName := "MyMessage"
-	endpoint := Create(serviceName, &TestTransport{})
+	endpoint := Create(serviceName, &TestTransport{}).(*ServiceBusEndpoint)
 	endpoint.Message(messageName).
 		AsOutgoing().
 		Mutate(func(ctx *OutgoingMessageContext) {
@@ -158,7 +158,7 @@ func TestMessageValidationWithInvalidMessage(t *testing.T) {
 func TestIncomingMessageConfigurationCreated(t *testing.T) {
 	serviceName := "ServiceName"
 	messageName := "MyMessage"
-	endpoint := Create(serviceName, &TestTransport{})
+	endpoint := Create(serviceName, &TestTransport{}).(*ServiceBusEndpoint)
 	endpoint.Message(messageName).AsIncoming()
 	if endpoint.incomingMessages[messageName] == nil {
 		t.Errorf("Failed to create incoming message configuration.")
@@ -175,7 +175,7 @@ func TestIncomingMessageConfigurationCreated(t *testing.T) {
 func TestOutgoingMessageConfigurationCreated(t *testing.T) {
 	serviceName := "ServiceName"
 	messageName := "MyMessage"
-	endpoint := Create(serviceName, &TestTransport{})
+	endpoint := Create(serviceName, &TestTransport{}).(*ServiceBusEndpoint)
 	endpoint.Message(messageName).AsOutgoing()
 	if endpoint.outgoingMessages[messageName] == nil {
 		t.Errorf("Failed to create outgoing message configuration.")
