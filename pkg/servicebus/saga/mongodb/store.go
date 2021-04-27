@@ -95,16 +95,10 @@ func ExpireInSeconds(seconds int32) func(*MongoStore) error {
 		}
 
 		indexName := "ExpireSaga"
-		var exists bool
 		for _, r := range results {
 			if r.Name == indexName && r.ExpiresInSeconds != nil && *r.ExpiresInSeconds == seconds {
-				exists = true
-				break
+				return nil
 			}
-		}
-
-		if exists {
-			return nil
 		}
 
 		//Drop in case index exists with different TTL
