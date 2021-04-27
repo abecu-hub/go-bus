@@ -54,8 +54,8 @@ func (t *Transport) Start(endpointName string) error {
 
 func (t *Transport) consume() {
 	var handler asb.HandlerFunc = func(ctx context.Context, msg *asb.Message) error {
-
-		return msg.Complete(ctx)
+		t.messageReceived <- t.createIncomingContext(msg)
+		return nil
 	}
 	for {
 		t.Queue.Receive(context.Background(), handler)
@@ -185,10 +185,10 @@ func (t *Transport) createTransportMessage(ctx *servicebus.OutgoingMessageContex
 	return asb.NewMessage(payload), nil
 }
 
-func (t *Transport) createIncomingContext(msg *asb.Message) (*servicebus.IncomingMessageContext, error) {
+func (t *Transport) createIncomingContext(msg *asb.Message) *servicebus.IncomingMessageContext {
 	ctx := new(servicebus.IncomingMessageContext)
 	ctx.Ack = func() {
 		_ = msg.Complete(context.Background())
 	}
-	return nil, nil
+	return nil
 }
