@@ -13,6 +13,7 @@ type Transport struct {
 	Namespace        *asb.Namespace
 	QueueManager     *asb.QueueManager
 	Queue            *asb.Queue
+	QueueEntity      *asb.QueueEntity
 	routingBuffer    []string
 	messageReceived  chan *servicebus.IncomingMessageContext
 }
@@ -34,6 +35,7 @@ func (t *Transport) Start(endpointName string) error {
 	if err != nil {
 		return err
 	}
+	t.QueueEntity = qe
 	t.Queue, err = ns.NewQueue(qe.Name)
 	if err != nil {
 		return err
@@ -76,12 +78,7 @@ func (t *Transport) RegisterRouting(route string) error {
 }
 
 func (t *Transport) subscribe(route string) error {
-	_, err := t.ensureTopic(route)
-	if err != nil {
-		return err
-	}
-
-	_, err = t.ensureSubscription(route)
+	_, err := t.ensureSubscription(route)
 	if err != nil {
 		return err
 	}
@@ -145,14 +142,11 @@ func (t *Transport) ensureSubscription(topic string) (*asb.SubscriptionEntity, e
 	}
 	subscriptionName := topic + "_" + t.Queue.Name
 	se, err := sm.Get(ctx, subscriptionName)
-	if err != nil {
-		_ = sm.Delete(ctx, subscriptionName)
+	if se != nil && err == nil {
+		return se, nil
 	}
 
-	se, err = sm.Put(ctx, subscriptionName, func(description *asb.SubscriptionDescription) error {
-		description.ForwardTo = &t.Queue.Name
-		return nil
-	})
+	se, err = sm.Put(ctx, subscriptionName, asb.SubscriptionWithAutoForward(t.QueueEntity))
 	if err != nil {
 		return nil, err
 	}
@@ -160,35 +154,36 @@ func (t *Transport) ensureSubscription(topic string) (*asb.SubscriptionEntity, e
 	return se, nil
 }
 
-func (t *Transport) ensureTopic(topic string) (*asb.TopicEntity, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
-	defer cancel()
-
-	tm := t.Namespace.NewTopicManager()
-	te, err := tm.Get(ctx, topic)
-	if err != nil {
-		err = tm.Delete(ctx, topic)
-	}
-	te, err = tm.Put(ctx, topic)
-	if err != nil {
-		return nil, err
-	}
-	return te, nil
-}
-
 func (t *Transport) createTransportMessage(ctx *servicebus.OutgoingMessageContext) (*asb.Message, error) {
-	payload, err := json.Marshal(ctx)
+	payload, err := json.Marshal(ctx.Payload)
 	if err != nil {
 		return nil, err
 	}
 
-	return asb.NewMessage(payload), nil
+	msg := asb.NewMessage(payload)
+	msg.CorrelationID = ctx.CorrelationId
+	msg.ID = ctx.MessageId
+	msg.ContentType = ctx.Type
+	msg.UserProperties = ctx.Headers
+	msg.UserProperties["Timestamp"] = ctx.Timestamp
+	msg.UserProperties["Origin"] = ctx.Origin
+	msg.UserProperties["CorrelationTimestamp"] = ctx.CorrelationTimestamp
+
+	return msg, nil
 }
 
 func (t *Transport) createIncomingContext(msg *asb.Message) *servicebus.IncomingMessageContext {
 	ctx := new(servicebus.IncomingMessageContext)
+	ctx.Payload = msg.Data
+	ctx.Headers = msg.UserProperties
+	ctx.MessageId = msg.ID
+	ctx.Type = msg.ContentType
+	ctx.CorrelationId = msg.CorrelationID
+	ctx.CorrelationTimestamp = msg.UserProperties["CorrelationTimestamp"].(time.Time)
+	ctx.Origin = msg.UserProperties["Origin"].(string)
+	ctx.Timestamp = msg.UserProperties["Timestamp"].(time.Time)
 	ctx.Ack = func() {
 		_ = msg.Complete(context.Background())
 	}
-	return nil
+	return ctx
 }

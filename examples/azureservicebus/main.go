@@ -28,6 +28,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	<-make(chan bool)
 }
 
 func myMessageHandle(ctx *servicebus.IncomingMessageContext) {
