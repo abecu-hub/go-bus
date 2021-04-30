@@ -6,21 +6,30 @@ import (
 	"time"
 )
 
-type Endpoint struct {
-	Name             string
-	Transport        Transport
+type Endpoint interface {
+	Message(messageType string) *MessageConfiguration
+	Start() error
+	Publish(messageType string, msg interface{}, options ...OutgoingMutation) error
+	Send(messageType string, destination string, msg interface{}, options ...OutgoingMutation) error
+	SendLocal(messageType string, msg interface{}, options ...OutgoingMutation) error
+	SagaStore() saga.Store
+}
+
+type ServiceBusEndpoint struct {
+	name             string
+	transport        Transport
 	incomingMessages map[string]*IncomingMessageConfiguration
 	outgoingMessages map[string]*OutgoingMessageConfiguration
-	SagaStore        saga.Store
+	sagaStore        saga.Store
 }
 
 /*
-Create a new service bus Endpoint by providing a transport e.g. RabbitMQ, MSMQ, Kafka, etc.
+Create a new ServiceBusEndpoint by providing a name and a transport.
 */
-func Create(name string, transport Transport, options ...func(endpoint *Endpoint)) *Endpoint {
-	endpoint := &Endpoint{
-		Name:             name,
-		Transport:        transport,
+func Create(name string, transport Transport, options ...func(endpoint *ServiceBusEndpoint)) Endpoint {
+	endpoint := &ServiceBusEndpoint{
+		name:             name,
+		transport:        transport,
 		incomingMessages: make(map[string]*IncomingMessageConfiguration),
 		outgoingMessages: make(map[string]*OutgoingMessageConfiguration),
 	}
@@ -32,7 +41,7 @@ func Create(name string, transport Transport, options ...func(endpoint *Endpoint
 	return endpoint
 }
 
-func (endpoint *Endpoint) createOrGetIncomingMessageConfig(mc *MessageConfiguration) *IncomingMessageConfiguration {
+func (endpoint *ServiceBusEndpoint) createOrGetIncomingMessageConfig(mc *MessageConfiguration) *IncomingMessageConfiguration {
 	if endpoint.incomingMessages[mc.messageType] == nil {
 		endpoint.incomingMessages[mc.messageType] = &IncomingMessageConfiguration{
 			messageConfiguration: mc,
@@ -41,7 +50,7 @@ func (endpoint *Endpoint) createOrGetIncomingMessageConfig(mc *MessageConfigurat
 	return endpoint.incomingMessages[mc.messageType]
 }
 
-func (endpoint *Endpoint) createOrGetOutgoingMessageConfig(mc *MessageConfiguration) *OutgoingMessageConfiguration {
+func (endpoint *ServiceBusEndpoint) createOrGetOutgoingMessageConfig(mc *MessageConfiguration) *OutgoingMessageConfiguration {
 	if endpoint.outgoingMessages[mc.messageType] == nil {
 		endpoint.outgoingMessages[mc.messageType] = &OutgoingMessageConfiguration{
 			messageConfiguration: mc,
@@ -51,7 +60,7 @@ func (endpoint *Endpoint) createOrGetOutgoingMessageConfig(mc *MessageConfigurat
 }
 
 //Declare a message configuration.
-func (endpoint *Endpoint) Message(messageType string) *MessageConfiguration {
+func (endpoint *ServiceBusEndpoint) Message(messageType string) *MessageConfiguration {
 	return &MessageConfiguration{
 		messageType: messageType,
 		endpoint:    endpoint,
@@ -59,16 +68,16 @@ func (endpoint *Endpoint) Message(messageType string) *MessageConfiguration {
 }
 
 /*
-Start receiving message with the ServiceBus
+Start receiving/sending messages with the ServiceBus and setup transport topology.
 */
-func (endpoint *Endpoint) Start() error {
-	if endpoint.Transport == nil {
-		panic("Endpoint has no transport configured.")
+func (endpoint *ServiceBusEndpoint) Start() error {
+	if endpoint.transport == nil {
+		panic("ServiceBusEndpoint has no transport configured.")
 	}
 
 	go endpoint.handleReceivedMessages()
 
-	err := endpoint.Transport.Start(endpoint.Name)
+	err := endpoint.transport.Start(endpoint.name)
 	if err != nil {
 		return err
 	}
@@ -79,13 +88,13 @@ func (endpoint *Endpoint) Start() error {
 /*
 Publish a message to all subscribers
 */
-func (endpoint *Endpoint) Publish(messageType string, msg interface{}, options ...OutgoingMutation) error {
+func (endpoint *ServiceBusEndpoint) Publish(messageType string, msg interface{}, options ...OutgoingMutation) error {
 	ctx := endpoint.createMessageContext(messageType, msg, options)
 	if ctx.IsCancelled {
 		return nil
 	}
 
-	err := endpoint.Transport.Publish(ctx)
+	err := endpoint.transport.Publish(ctx)
 	if err != nil {
 		return err
 	}
@@ -94,15 +103,15 @@ func (endpoint *Endpoint) Publish(messageType string, msg interface{}, options .
 }
 
 /*
-Send a message to a specific Endpoint
+Send a message to a specific ServiceBusEndpoint
 */
-func (endpoint *Endpoint) Send(messageType string, destination string, msg interface{}, options ...OutgoingMutation) error {
+func (endpoint *ServiceBusEndpoint) Send(messageType string, destination string, msg interface{}, options ...OutgoingMutation) error {
 	ctx := endpoint.createMessageContext(messageType, msg, options)
 	if ctx.IsCancelled {
 		return nil
 	}
 
-	err := endpoint.Transport.Send(destination, ctx)
+	err := endpoint.transport.Send(destination, ctx)
 	if err != nil {
 		return err
 	}
@@ -111,15 +120,15 @@ func (endpoint *Endpoint) Send(messageType string, destination string, msg inter
 }
 
 /*
-Send the message to the local Endpoint
+Send the message to the local ServiceBusEndpoint
 */
-func (endpoint *Endpoint) SendLocal(messageType string, msg interface{}, options ...OutgoingMutation) error {
+func (endpoint *ServiceBusEndpoint) SendLocal(messageType string, msg interface{}, options ...OutgoingMutation) error {
 	ctx := endpoint.createMessageContext(messageType, msg, options)
 	if ctx.IsCancelled {
 		return nil
 	}
 
-	err := endpoint.Transport.SendLocal(ctx)
+	err := endpoint.transport.SendLocal(ctx)
 	if err != nil {
 		return err
 	}
@@ -127,8 +136,12 @@ func (endpoint *Endpoint) SendLocal(messageType string, msg interface{}, options
 	return nil
 }
 
-func (endpoint *Endpoint) handleReceivedMessages() {
-	received := endpoint.Transport.MessageReceived(make(chan *IncomingMessageContext))
+func (endpoint *ServiceBusEndpoint) SagaStore() saga.Store {
+	return endpoint.sagaStore
+}
+
+func (endpoint *ServiceBusEndpoint) handleReceivedMessages() {
+	received := endpoint.transport.MessageReceived(make(chan *IncomingMessageContext))
 	for {
 		msg := <-received
 		msg.setEndpoint(endpoint)
@@ -141,14 +154,14 @@ func (endpoint *Endpoint) handleReceivedMessages() {
 
 		if _, ok := endpoint.incomingMessages[msg.Type]; !ok {
 			//unregister routing from transport as there is no handler any more and discard the message by default.
-			_ = endpoint.Transport.UnregisterRouting(msg.Type)
+			_ = endpoint.transport.UnregisterRouting(msg.Type)
 			msg.Discard()
 			return
 		}
 
 		err = endpoint.startSagas(msg)
 		if err != nil {
-			//If saga could not be checked/created it is most likey a transient issue with database access, so the message will be requeued by default.
+			//If saga could not be checked/created it is most likely a transient issue with database access, so the message will be requeued by default.
 			msg.Retry()
 			return
 		}
@@ -159,10 +172,10 @@ func (endpoint *Endpoint) handleReceivedMessages() {
 	}
 }
 
-func (endpoint *Endpoint) startSagas(ctx *IncomingMessageContext) error {
+func (endpoint *ServiceBusEndpoint) startSagas(ctx *IncomingMessageContext) error {
 	config := endpoint.incomingMessages[ctx.Type]
 	for _, s := range config.sagas {
-		exists, err := endpoint.SagaStore.SagaExists(ctx.CorrelationId, s)
+		exists, err := endpoint.sagaStore.SagaExists(ctx.CorrelationId, s)
 		if err != nil {
 			return err
 		}
@@ -170,7 +183,7 @@ func (endpoint *Endpoint) startSagas(ctx *IncomingMessageContext) error {
 			continue
 		}
 
-		err = endpoint.SagaStore.CreateSaga(ctx.CorrelationId, s)
+		err = endpoint.sagaStore.CreateSaga(ctx.CorrelationId, s)
 		if err != nil {
 			return err
 		}
@@ -178,13 +191,13 @@ func (endpoint *Endpoint) startSagas(ctx *IncomingMessageContext) error {
 	return nil
 }
 
-func (endpoint *Endpoint) createMessageContext(messageType string, payload interface{}, mutations []OutgoingMutation) *OutgoingMessageContext {
+func (endpoint *ServiceBusEndpoint) createMessageContext(messageType string, payload interface{}, mutations []OutgoingMutation) *OutgoingMessageContext {
 	ctx := CreateOutgoingContext(endpoint)
 	ctx.Payload = payload
 	ctx.Type = messageType
 	ctx.MessageId = uuid.New().String()
 	ctx.Timestamp = time.Now().UTC()
-	ctx.Origin = endpoint.Name
+	ctx.Origin = endpoint.name
 	ctx.Headers = make(map[string]interface{})
 
 	if _, ok := endpoint.outgoingMessages[""]; ok {
@@ -205,6 +218,10 @@ func (endpoint *Endpoint) createMessageContext(messageType string, payload inter
 
 	if ctx.CorrelationId == "" {
 		ctx.CorrelationId = ctx.MessageId
+	}
+
+	if ctx.CorrelationTimestamp.IsZero() {
+		ctx.CorrelationTimestamp = time.Now().UTC()
 	}
 
 	return ctx

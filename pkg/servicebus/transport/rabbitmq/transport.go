@@ -214,6 +214,7 @@ func (rmq *Transport) createTransportMessage(ctx *servicebus.OutgoingMessageCont
 	}
 
 	ctx.Headers["Origin"] = ctx.Origin
+	ctx.Headers["CorrelationTimestamp"] = ctx.CorrelationTimestamp
 	return &amqp.Publishing{
 		ContentType:   "text/json",
 		Body:          payload,
@@ -232,6 +233,7 @@ func (rmq *Transport) createIncomingContext(d *amqp.Delivery) *servicebus.Incomi
 	ctx.Payload = d.Body
 	ctx.Type = d.Type
 	ctx.CorrelationId = d.CorrelationId
+	ctx.CorrelationTimestamp = d.Headers["CorrelationTimestamp"].(time.Time)
 	ctx.MessageId = d.MessageId
 	ctx.Timestamp = d.Timestamp
 	ctx.Priority = d.Priority
