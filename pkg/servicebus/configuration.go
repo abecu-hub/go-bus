@@ -2,6 +2,7 @@ package servicebus
 
 type OutgoingMutation func(ctx *OutgoingMessageContext)
 type IncomingMutation func(ctx *IncomingMessageContext)
+type RetryPolicy func(retryCount int, retry func() error) error
 
 type MessageConfiguration struct {
 	endpoint    *ServiceBusEndpoint
@@ -11,11 +12,25 @@ type MessageConfiguration struct {
 type OutgoingMessageConfiguration struct {
 	messageConfiguration *MessageConfiguration
 	mutations            []OutgoingMutation
+	retryConfiguration   *RetryConfiguration
+}
+
+type RetryConfiguration struct {
+	MaxRetries int
+	Policy     RetryPolicy
 }
 
 //Mutates the outgoing message context with the given function. Multiple mutations will be executed in order of declaration.
 func (config *OutgoingMessageConfiguration) Mutate(behavior OutgoingMutation) *OutgoingMessageConfiguration {
 	config.mutations = append(config.mutations, behavior)
+	return config
+}
+
+func (config *OutgoingMessageConfiguration) Retry(maxRetries int, policy RetryPolicy) *OutgoingMessageConfiguration {
+	config.retryConfiguration = &RetryConfiguration{
+		MaxRetries: maxRetries,
+		Policy:     policy,
+	}
 	return config
 }
 
