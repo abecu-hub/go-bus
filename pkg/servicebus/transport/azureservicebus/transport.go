@@ -60,7 +60,7 @@ func (t *Transport) consume() {
 		return nil
 	}
 	for {
-		t.Queue.Receive(context.Background(), handler)
+		_ = t.Queue.Receive(context.Background(), handler)
 	}
 }
 
@@ -91,11 +91,41 @@ func (Transport) UnregisterRouting(route string) error {
 }
 
 func (t *Transport) Publish(message *servicebus.OutgoingMessageContext) error {
-	panic("implement me")
+	msg, err := t.createTransportMessage(message)
+	if err != nil {
+		return err
+	}
+
+	_, err = t.ensureTopic(message.Type)
+	if err != nil {
+		return err
+	}
+
+	topic, err := t.Namespace.NewTopic(message.Type)
+	if err != nil {
+		return err
+	}
+	err = topic.Send(context.Background(), msg)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (Transport) Send(destination string, command *servicebus.OutgoingMessageContext) error {
-	panic("implement me")
+func (t *Transport) Send(destination string, command *servicebus.OutgoingMessageContext) error {
+	msg, err := t.createTransportMessage(command)
+	if err != nil {
+		return err
+	}
+	q, err := t.Namespace.NewQueue(destination)
+	if err != nil {
+		return err
+	}
+	err = q.Send(context.Background(), msg)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (t *Transport) SendLocal(command *servicebus.OutgoingMessageContext) error {
@@ -132,11 +162,31 @@ func (t *Transport) ensureQueue(name string, opts ...asb.QueueManagementOption) 
 	return qe, nil
 }
 
+func (t *Transport) ensureTopic(topic string) (*asb.TopicEntity, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
+	defer cancel()
+
+	tm := t.Namespace.NewTopicManager()
+	te, err := tm.Get(ctx, topic)
+	if err != nil {
+		te, err = tm.Put(ctx, topic)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return te, nil
+}
+
 func (t *Transport) ensureSubscription(topic string) (*asb.SubscriptionEntity, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
 	defer cancel()
 
-	sm, err := t.Namespace.NewSubscriptionManager(topic)
+	te, err := t.ensureTopic(topic)
+	if err != nil {
+		return nil, err
+	}
+
+	sm, err := t.Namespace.NewSubscriptionManager(te.Name)
 	if err != nil {
 		return nil, err
 	}
