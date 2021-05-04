@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/abecu-hub/go-bus/pkg/servicebus"
+	"github.com/abecu-hub/go-bus/pkg/servicebus/retrypolicy"
 	"github.com/abecu-hub/go-bus/pkg/servicebus/transport/rabbitmq"
 	"github.com/google/uuid"
 	"time"
@@ -31,6 +32,10 @@ func main() {
 	endpoint.Message(CreateUserMessage).
 		AsIncoming().
 		Handle(createUser)
+
+	endpoint.Message(CreateUserMessage).
+		AsOutgoing().
+		Retry(10, retrypolicy.Backoff(2*time.Second))
 
 	endpoint.Message(UserCreatedMessage).
 		AsIncoming().

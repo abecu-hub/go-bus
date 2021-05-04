@@ -94,7 +94,12 @@ func (endpoint *ServiceBusEndpoint) Publish(messageType string, msg interface{},
 		return nil
 	}
 
-	err := endpoint.transport.Publish(ctx)
+	cfg := endpoint.outgoingMessages[messageType]
+	if cfg == nil || cfg.retryConfiguration == nil {
+		return endpoint.transport.Publish(ctx)
+	}
+
+	err := cfg.retryConfiguration.Execute(func() error { return endpoint.transport.Publish(ctx) })
 	if err != nil {
 		return err
 	}
@@ -111,11 +116,15 @@ func (endpoint *ServiceBusEndpoint) Send(messageType string, destination string,
 		return nil
 	}
 
-	err := endpoint.transport.Send(destination, ctx)
+	cfg := endpoint.outgoingMessages[messageType]
+	if cfg == nil || cfg.retryConfiguration == nil {
+		return endpoint.transport.Send(destination, ctx)
+	}
+
+	err := cfg.retryConfiguration.Execute(func() error { return endpoint.transport.Send(destination, ctx) })
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -128,11 +137,15 @@ func (endpoint *ServiceBusEndpoint) SendLocal(messageType string, msg interface{
 		return nil
 	}
 
-	err := endpoint.transport.SendLocal(ctx)
+	cfg := endpoint.outgoingMessages[messageType]
+	if cfg == nil || cfg.retryConfiguration == nil {
+		return endpoint.transport.SendLocal(ctx)
+	}
+
+	err := cfg.retryConfiguration.Execute(func() error { return endpoint.transport.SendLocal(ctx) })
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -225,4 +238,18 @@ func (endpoint *ServiceBusEndpoint) createMessageContext(messageType string, pay
 	}
 
 	return ctx
+}
+
+func (cfg *RetryConfiguration) Execute(f func() error) error {
+	var err error
+	for i := 0; i < cfg.MaxRetries; i++ {
+		err = cfg.Policy(i, f)
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return err
+	}
+	return nil
 }
