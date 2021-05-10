@@ -233,11 +233,14 @@ func (rmq *Transport) createIncomingContext(d *amqp.Delivery) *servicebus.Incomi
 	ctx.Payload = d.Body
 	ctx.Type = d.Type
 	ctx.CorrelationId = d.CorrelationId
-	ctx.CorrelationTimestamp = d.Headers["CorrelationTimestamp"].(time.Time)
 	ctx.MessageId = d.MessageId
 	ctx.Timestamp = d.Timestamp
 	ctx.Priority = d.Priority
 	ctx.Origin = fmt.Sprint(d.Headers["Origin"])
+	corrTime, castOk := d.Headers["CorrelationTimestamp"].(time.Time)
+	if castOk {
+		ctx.CorrelationTimestamp = corrTime
+	}
 	ctx.Ack = func() {
 		_ = d.Ack(false)
 	}
