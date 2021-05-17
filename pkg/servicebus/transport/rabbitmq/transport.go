@@ -252,3 +252,7 @@ func (rmq *Transport) createIncomingContext(d *amqp.Delivery) *servicebus.Incomi
 	}
 	return ctx
 }
+
+func (rmq *Transport) GetConnection() *amqp.Connection {
+	return rmq.connection
+}
