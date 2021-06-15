@@ -1,17 +1,18 @@
 package servicebus
 
 import (
+	"time"
+
 	"github.com/abecu-hub/go-bus/pkg/servicebus/saga"
 	"github.com/google/uuid"
-	"time"
 )
 
 type Endpoint interface {
 	Message(messageType string) *MessageConfiguration
 	Start() error
-	Publish(messageType string, msg interface{}, options ...OutgoingMutation) error
-	Send(messageType string, destination string, msg interface{}, options ...OutgoingMutation) error
-	SendLocal(messageType string, msg interface{}, options ...OutgoingMutation) error
+	Publish(messageType string, msg interface{}, options ...OutgoingMutation) (*MetaData, error)
+	Send(messageType string, destination string, msg interface{}, options ...OutgoingMutation) (*MetaData, error)
+	SendLocal(messageType string, msg interface{}, options ...OutgoingMutation) (*MetaData, error)
 	SagaStore() saga.Store
 }
 
@@ -21,6 +22,11 @@ type ServiceBusEndpoint struct {
 	incomingMessages map[string]*IncomingMessageConfiguration
 	outgoingMessages map[string]*OutgoingMessageConfiguration
 	sagaStore        saga.Store
+}
+
+type MetaData struct {
+	CorrelationId        string
+	CorrelationTimestamp time.Time
 }
 
 /*
@@ -88,65 +94,65 @@ func (endpoint *ServiceBusEndpoint) Start() error {
 /*
 Publish a message to all subscribers
 */
-func (endpoint *ServiceBusEndpoint) Publish(messageType string, msg interface{}, options ...OutgoingMutation) error {
-	ctx := endpoint.createMessageContext(messageType, msg, options)
+func (endpoint *ServiceBusEndpoint) Publish(messageType string, msg interface{}, options ...OutgoingMutation) (*MetaData, error) {
+	metaData, ctx := endpoint.createMessageContext(messageType, msg, options)
 	if ctx.IsCancelled {
-		return nil
+		return metaData, nil
 	}
 
 	cfg := endpoint.outgoingMessages[messageType]
 	if cfg == nil || cfg.retryConfiguration == nil {
-		return endpoint.transport.Publish(ctx)
+		return metaData, endpoint.transport.Publish(ctx)
 	}
 
 	err := cfg.retryConfiguration.Execute(func() error { return endpoint.transport.Publish(ctx) })
 	if err != nil {
-		return err
+		return metaData, err
 	}
 
-	return nil
+	return metaData, nil
 }
 
 /*
 Send a message to a specific ServiceBusEndpoint
 */
-func (endpoint *ServiceBusEndpoint) Send(messageType string, destination string, msg interface{}, options ...OutgoingMutation) error {
-	ctx := endpoint.createMessageContext(messageType, msg, options)
+func (endpoint *ServiceBusEndpoint) Send(messageType string, destination string, msg interface{}, options ...OutgoingMutation) (*MetaData, error) {
+	metaData, ctx := endpoint.createMessageContext(messageType, msg, options)
 	if ctx.IsCancelled {
-		return nil
+		return metaData, nil
 	}
 
 	cfg := endpoint.outgoingMessages[messageType]
 	if cfg == nil || cfg.retryConfiguration == nil {
-		return endpoint.transport.Send(destination, ctx)
+		return metaData, endpoint.transport.Send(destination, ctx)
 	}
 
 	err := cfg.retryConfiguration.Execute(func() error { return endpoint.transport.Send(destination, ctx) })
 	if err != nil {
-		return err
+		return metaData, err
 	}
-	return nil
+	return metaData, nil
 }
 
 /*
 Send the message to the local ServiceBusEndpoint
 */
-func (endpoint *ServiceBusEndpoint) SendLocal(messageType string, msg interface{}, options ...OutgoingMutation) error {
-	ctx := endpoint.createMessageContext(messageType, msg, options)
+func (endpoint *ServiceBusEndpoint) SendLocal(messageType string, msg interface{}, options ...OutgoingMutation) (*MetaData, error) {
+	metaData, ctx := endpoint.createMessageContext(messageType, msg, options)
 	if ctx.IsCancelled {
-		return nil
+		return metaData, nil
 	}
 
 	cfg := endpoint.outgoingMessages[messageType]
 	if cfg == nil || cfg.retryConfiguration == nil {
-		return endpoint.transport.SendLocal(ctx)
+		return metaData, endpoint.transport.SendLocal(ctx)
 	}
 
 	err := cfg.retryConfiguration.Execute(func() error { return endpoint.transport.SendLocal(ctx) })
 	if err != nil {
-		return err
+		return metaData, err
 	}
-	return nil
+	return metaData, nil
 }
 
 func (endpoint *ServiceBusEndpoint) SagaStore() saga.Store {
@@ -204,7 +210,7 @@ func (endpoint *ServiceBusEndpoint) startSagas(ctx *IncomingMessageContext) erro
 	return nil
 }
 
-func (endpoint *ServiceBusEndpoint) createMessageContext(messageType string, payload interface{}, mutations []OutgoingMutation) *OutgoingMessageContext {
+func (endpoint *ServiceBusEndpoint) createMessageContext(messageType string, payload interface{}, mutations []OutgoingMutation) (*MetaData, *OutgoingMessageContext) {
 	ctx := CreateOutgoingContext(endpoint)
 	ctx.Payload = payload
 	ctx.Type = messageType
@@ -237,7 +243,10 @@ func (endpoint *ServiceBusEndpoint) createMessageContext(messageType string, pay
 		ctx.CorrelationTimestamp = time.Now().UTC()
 	}
 
-	return ctx
+	return &MetaData{
+		CorrelationId:        ctx.CorrelationId,
+		CorrelationTimestamp: ctx.CorrelationTimestamp,
+	}, ctx
 }
 
 func (cfg *RetryConfiguration) Execute(f func() error) error {

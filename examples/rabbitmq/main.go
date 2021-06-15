@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/abecu-hub/go-bus/pkg/servicebus"
 	"github.com/abecu-hub/go-bus/pkg/servicebus/retrypolicy"
 	"github.com/abecu-hub/go-bus/pkg/servicebus/transport/rabbitmq"
 	"github.com/google/uuid"
-	"time"
 )
 
 const (
@@ -47,7 +48,7 @@ func main() {
 	}
 
 	for {
-		err = endpoint.SendLocal(CreateUserMessage, &CreateUser{
+		_, err = endpoint.SendLocal(CreateUserMessage, &CreateUser{
 			Name:  "UserName",
 			Email: "username@useremail.com",
 		})

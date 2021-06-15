@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/abecu-hub/go-bus/pkg/servicebus"
 	"github.com/abecu-hub/go-bus/pkg/servicebus/transport/azureservicebus"
-	"os"
 )
 
 type MyMessage struct {
@@ -22,7 +23,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = endpoint.SendLocal("MyMessage", &MyMessage{
+	_, err = endpoint.SendLocal("MyMessage", &MyMessage{
 		Message: "Hallo Welt!",
 	})
 	if err != nil {

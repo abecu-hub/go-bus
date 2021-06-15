@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"reflect"
+	"time"
+
 	"github.com/abecu-hub/go-bus/pkg/servicebus"
 	"github.com/abecu-hub/go-bus/pkg/servicebus/saga/mongodb"
 	"github.com/abecu-hub/go-bus/pkg/servicebus/transport/rabbitmq"
@@ -10,8 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"reflect"
-	"time"
 )
 
 const (
@@ -118,7 +119,7 @@ func main() {
 		panic("Error starting DeliveryService endpoint!")
 	}
 
-	err = orderServiceEndpoint.SendLocal(StartOrderMessage, &StartOrder{OrderID: uuid.New().String()})
+	_, err = orderServiceEndpoint.SendLocal(StartOrderMessage, &StartOrder{OrderID: uuid.New().String()})
 	if err != nil {
 		panic("Error sending initial message!")
 	}

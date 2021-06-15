@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/abecu-hub/go-bus/pkg/servicebus/saga"
 	"time"
+
+	"github.com/abecu-hub/go-bus/pkg/servicebus/saga"
 )
 
 type OutgoingMessageContext struct {
@@ -96,7 +97,7 @@ func (context *IncomingMessageContext) Reply(messageType string, msg interface{}
 		m.CorrelationId = context.CorrelationId
 		m.CorrelationTimestamp = context.CorrelationTimestamp
 	})
-	err := context.endpoint.Send(messageType, origin, msg, options...)
+	_, err := context.endpoint.Send(messageType, origin, msg, options...)
 	if err != nil {
 		return err
 	}
@@ -111,7 +112,7 @@ func (context *IncomingMessageContext) Send(messageType string, destination stri
 		m.CorrelationId = context.CorrelationId
 		m.CorrelationTimestamp = context.CorrelationTimestamp
 	})
-	err := context.endpoint.Send(messageType, destination, msg, options...)
+	_, err := context.endpoint.Send(messageType, destination, msg, options...)
 	if err != nil {
 		return err
 	}
@@ -126,7 +127,7 @@ func (context *IncomingMessageContext) Publish(messageType string, msg interface
 		m.CorrelationId = context.CorrelationId
 		m.CorrelationTimestamp = context.CorrelationTimestamp
 	})
-	err := context.endpoint.Publish(messageType, msg, options...)
+	_, err := context.endpoint.Publish(messageType, msg, options...)
 	if err != nil {
 		return err
 	}
@@ -141,7 +142,7 @@ func (context *IncomingMessageContext) SendLocal(messageType string, msg interfa
 		m.CorrelationId = context.CorrelationId
 		m.CorrelationTimestamp = context.CorrelationTimestamp
 	})
-	err := context.endpoint.SendLocal(messageType, msg, options...)
+	_, err := context.endpoint.SendLocal(messageType, msg, options...)
 	if err != nil {
 		return err
 	}

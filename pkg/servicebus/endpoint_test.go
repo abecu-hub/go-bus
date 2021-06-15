@@ -48,7 +48,7 @@ func TestCreateOutgoingContext(t *testing.T) {
 	serviceName := "ServiceName"
 	endpoint := Create(serviceName, &TestTransport{}).(*ServiceBusEndpoint)
 	payload := &MyMessage{Name: "HelloWorld"}
-	ctx := endpoint.createMessageContext("MyMessage", payload, nil)
+	_, ctx := endpoint.createMessageContext("MyMessage", payload, nil)
 	if ctx.Origin != serviceName {
 		t.Errorf("Origin not set!")
 	}
@@ -91,7 +91,7 @@ func TestMutateOutgoingContext(t *testing.T) {
 	}
 
 	payload := &MyMessage{Name: "HelloWorld"}
-	ctx := endpoint.createMessageContext(messageName, payload, []OutgoingMutation{mutationHeader, mutationOverride})
+	_, ctx := endpoint.createMessageContext(messageName, payload, []OutgoingMutation{mutationHeader, mutationOverride})
 
 	if ctx.Origin != "NewOrigin" {
 		t.Errorf("Mutation in message configuration failed.")
